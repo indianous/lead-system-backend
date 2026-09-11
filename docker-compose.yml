@@ -1,0 +1,25 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: lead-system-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: lead_system
+      POSTGRES_USER: postgres
+      # Trust auth (sem senha) só para desenvolvimento local, coerente com o
+      # default de DATABASE_PASSWORD vazio em application.properties.
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      # Host 5433 -> container 5432: evita conflito com outros Postgres
+      # já rodando na máquina na porta padrão 5432.
+      - "5433:5432"
+    volumes:
+      - lead_system_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d lead_system"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  lead_system_db_data:

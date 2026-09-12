@@ -6,13 +6,22 @@ Este documento é o backlog macro, em etapas sequenciais. Cada etapa só deve co
 
 ---
 
-## Etapa 0 — Fundação de infraestrutura
+## Etapa 0 — Fundação de infraestrutura (concluída)
+
+Detalhe completo em `plans/2026-09-12-etapa-0-fundacao.md`.
 
 - [x] Projeto Spring Boot configurado (`pom.xml`, `application.properties`, Maven wrapper, `.gitignore`)
 - [x] `docker-compose.yml` com Postgres local de desenvolvimento (porta 5433)
-- [ ] Criar estrutura de pacotes base: `domain`, `api` (controllers/DTOs), `config`, `security`, `messaging`, `prospecting`, `notification`
-- [ ] Primeira migration Flyway de baseline (`V1__baseline.sql`, ainda vazia ou só com extensões do Postgres necessárias, ex. `uuid-ossp`/`pgcrypto` se os UUIDs forem gerados pelo banco)
-- [ ] Definir estratégia de geração de UUID (aplicação via `@GeneratedValue` vs. `gen_random_uuid()` do Postgres) e documentar a escolha
+- [x] Estrutura de pacotes base: `domain`, `api` (controllers/DTOs), `config`, `security`, `messaging`, `prospecting`, `notification` (cada um com `package-info.java`)
+- [x] Primeira migration Flyway de baseline (`V1__baseline.sql`, sem tabelas ainda)
+- [x] Estratégia de geração de UUID definida e documentada: **geração pela aplicação**
+  (Hibernate `GenerationType.UUID`), não `gen_random_uuid()` do Postgres — o id fica
+  disponível antes do `INSERT`, útil para publicar eventos de domínio/notificações
+  na Etapa 8/11 sem depender de uma função específica do banco. Consequência: a
+  baseline não precisa de nenhuma extensão do Postgres.
+- [x] Testes de integração isolados do Postgres de desenvolvimento: `TestcontainersConfiguration`
+  (`@ServiceConnection` com `PostgreSQLContainer`) importada em `LeadSystemApplicationTests`,
+  validando que a app sobe e a migration aplica num Postgres 17 descartável
 
 ## Etapa 1 — Autenticação e Permissões (RBAC)
 

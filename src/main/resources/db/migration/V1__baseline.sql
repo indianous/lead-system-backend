@@ -1,0 +1,6 @@
+-- Baseline: sem tabelas ainda (ver Etapa 1 do roadmap para as primeiras entidades).
+--
+-- Decisão de geração de UUID: os ids das entidades são gerados pela aplicação
+-- (Hibernate GenerationType.UUID / java.util.UUID.randomUUID()), não pelo banco.
+-- Por isso esta baseline não precisa de nenhuma extensão do Postgres
+-- (ex.: pgcrypto) para gen_random_uuid().

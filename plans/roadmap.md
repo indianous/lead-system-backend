@@ -23,22 +23,23 @@ Detalhe completo em `plans/2026-09-12-etapa-0-fundacao.md`.
   (`@ServiceConnection` com `PostgreSQLContainer`) importada em `LeadSystemApplicationTests`,
   validando que a app sobe e a migration aplica num Postgres 17 descartável
 
-## Etapa 1 — Autenticação e Permissões (RBAC)
+## Etapa 1 — Autenticação e Permissões (RBAC) (concluída)
 
-Entidades: `User`, `Role`, `Permission` (ver `03-entidades.md`).
+Entidades: `User`, `Role`, `Permission` (ver `03-entidades.md`). Detalhe completo,
+decisões de design e matriz papel→permissão em `plans/2026-09-12-etapa-1-auth-rbac.md`.
 
-- [ ] Migration: tabelas `role`, `permission`, `role_permission`, `user`
-- [ ] Migration: seed das permissões fixas (`CREATE_USER`, `VIEW_ALL_LEADS`, `VIEW_OWN_LEADS`, `EDIT_CATALOG`, `VIEW_METRICS`, `TRIGGER_PROSPECTING`) e dos papéis iniciais (`Salesperson`, `Manager/Administrator`)
-- [ ] Migration: seed do primeiro usuário administrador (senha via variável de ambiente na migration, nunca hardcoded)
-- [ ] Entidades JPA `User`, `Role`, `Permission` + repositórios Spring Data
-- [ ] Serviço de hashing de senha (BCrypt via Spring Security)
-- [ ] Serviço de emissão/validação de JWT (JJWT)
-- [ ] `POST /api/auth/login` (email + senha → JWT)
-- [ ] `SecurityFilterChain`: filtro que valida o JWT em cada request e popula o contexto de segurança com papel/permissões do usuário
-- [ ] `POST /api/users` (`CREATE_USER`) — cria usuário, registra `created_by_id`
-- [ ] `GET /api/users`, `GET /api/users/{id}`, `PUT /api/users/{id}` (`CREATE_USER`)
-- [ ] Testes unitários: hashing, geração/validação de JWT
-- [ ] Testes de integração (MockMvc): login válido/inválido, RBAC nega acesso sem permissão (403), cadastro de usuário
+- [x] Migration: tabelas `roles`, `permissions`, `role_permissions`, `users` (`V2__create_rbac_tables.sql`)
+- [x] Migration: seed das permissões fixas (`CREATE_USER`, `VIEW_ALL_LEADS`, `VIEW_OWN_LEADS`, `EDIT_CATALOG`, `VIEW_METRICS`, `TRIGGER_PROSPECTING`) e dos papéis iniciais (`Salesperson`, `Manager/Administrator`) (`V3__seed_permissions_and_roles.sql`)
+- [x] Migration: seed do primeiro usuário administrador — `V4__SeedInitialAdminUser` (bean `JavaMigration` gerenciado pelo Spring, credenciais via `app.security.initial-admin.*`/variável de ambiente, hash via `PasswordEncoder`)
+- [x] Entidades JPA `User`, `Role`, `Permission` + repositórios Spring Data
+- [x] Hashing de senha via bean `PasswordEncoder` (`BCryptPasswordEncoder`) do Spring Security
+- [x] `JwtService` (JJWT): emissão/validação de JWT
+- [x] `POST /api/auth/login` (email + senha → JWT), via `AuthService`
+- [x] `SecurityFilterChain` + `JwtAuthenticationFilter`: valida o JWT e, a cada request, recarrega o `User` do banco (papel/permissões e `active`) — desativação tem efeito imediato, sem esperar o token expirar
+- [x] `POST /api/users` (`CREATE_USER`) — cria usuário, registra `created_by_id`
+- [x] `GET /api/users`, `GET /api/users/{id}`, `PUT /api/users/{id}` (`CREATE_USER`)
+- [x] Testes unitários: `JwtServiceTest` (geração, expiração, assinatura inválida)
+- [x] Testes de integração (MockMvc + Testcontainers): `AuthControllerTest` (login válido/inválido/inativo), `UserControllerTest` (401 sem token, 403 sem permissão, 201/409/404, desativação invalida token já emitido)
 
 ## Etapa 2 — Catálogo de Produtos
 

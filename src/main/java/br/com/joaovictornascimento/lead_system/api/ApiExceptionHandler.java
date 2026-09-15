@@ -24,4 +24,9 @@ public class ApiExceptionHandler {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", ex.getMessage()));
 	}
 
+	@ExceptionHandler(LeadAccessDeniedException.class)
+	public ResponseEntity<Map<String, String>> handleLeadAccessDenied(LeadAccessDeniedException ex) {
+		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", ex.getMessage()));
+	}
+
 }

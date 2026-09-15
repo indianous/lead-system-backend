@@ -52,16 +52,17 @@ Entidade: `Product`. Detalhe completo em `plans/2026-09-12-etapa-2-catalogo-prod
 - [x] Testes de integração (MockMvc + Testcontainers): `ProductControllerTest` (401/403/201/400/200/404)
 - [x] Adição fora do roadmap original, motivada pela Etapa 2 do frontend: `GET /api/roles` (`CREATE_USER`) — `RoleController`/`RoleResponse`, reaproveita `RoleRepository` da Etapa 1; `RoleControllerTest` (401/403/200)
 
-## Etapa 3 — Leads e Origem
+## Etapa 3 — Leads e Origem (concluída)
 
-Entidades: `LeadOrigin`, `Lead`.
+Entidades: `LeadOrigin`, `Lead`. Detalhe completo em `plans/2026-09-15-etapa-3-leads-e-origem.md`.
 
-- [ ] Migration: tabelas `lead_origin`, `lead`, `lead_product` (join N:N com `product`)
-- [ ] Entidades JPA `LeadOrigin`, `Lead` + repositórios
-- [ ] Validação condicional por `origin_type`/`lead_type` (campos de `DIRECT_CONTACT` vs. `LOCAL_SEARCH`) na camada de aplicação, não só no banco
-- [ ] `POST /api/leads` (cadastro manual — Meta/Telegram/grupos), `GET /api/leads` (filtro por tipo/canal/status/responsável), `GET /api/leads/{id}`, `PUT /api/leads/{id}`
-- [ ] Regra de atribuição: `assigned_user_id` obrigatório na criação
-- [ ] Testes unitários (validação condicional) e de integração (CRUD completo)
+- [x] Migration: tabelas `lead_origins`, `leads`, `lead_products` (join N:N com `products`) (`V6__create_leads_tables.sql`)
+- [x] Entidades JPA `LeadOrigin`, `Lead` + repositórios (`LeadRepository` com `@Query` de filtro opcional por `leadType`/`channel`/`funnelStatus`/`assignedUserId`)
+- [x] Validação condicional por `leadType` (campos de `DIRECT_CONTACT` vs. `LOCAL_SEARCH`) via `@AssertTrue` em `CreateLeadRequest`
+- [x] `POST /api/leads` (cadastro manual, sempre `captureMethod=MANUAL`), `GET /api/leads` (filtro por tipo/canal/status/responsável, forçado a `assignedUserId=self` para quem só tem `VIEW_OWN_LEADS`), `GET /api/leads/{id}`, `PUT /api/leads/{id}` — os dois últimos com checagem de posse (`LeadAccessDeniedException`→403 para quem só tem `VIEW_OWN_LEADS` e não é o responsável)
+- [x] Regra de atribuição: `assigned_user_id` obrigatório na criação, sem restrição de quem pode atribuir a quem (mesma simplificação da Etapa 1 com `roleId`)
+- [x] Testes: `CreateLeadRequestTest` (unitário, validação condicional) e `LeadControllerTest` (integração, MockMvc + Testcontainers — CRUD completo, 401/403/404/400)
+- [x] **Bug pré-existente corrigido** (achado ao rodar a app real, não pego pelo MockMvc): `OncePerRequestFilter.shouldNotFilterErrorDispatch()` é `true` por padrão, então `JwtAuthenticationFilter` não roda no forward interno do container para `/error` — qualquer resposta 4xx/5xx (ex.: 400 de Bean Validation) virava 401 vazio nesse forward, mascarando o status original. Corrigido adicionando `/error` ao `permitAll()` em `SecurityConfig`. Afetava também `/api/auth/login`, `/api/users` e `/api/products` (Etapas 1 e 2), não só `/api/leads`.
 
 ## Etapa 4 — Endpoint público de recepção de leads do site
 

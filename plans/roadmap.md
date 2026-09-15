@@ -41,15 +41,16 @@ decisões de design e matriz papel→permissão em `plans/2026-09-12-etapa-1-aut
 - [x] Testes unitários: `JwtServiceTest` (geração, expiração, assinatura inválida)
 - [x] Testes de integração (MockMvc + Testcontainers): `AuthControllerTest` (login válido/inválido/inativo), `UserControllerTest` (401 sem token, 403 sem permissão, 201/409/404, desativação invalida token já emitido)
 
-## Etapa 2 — Catálogo de Produtos
+## Etapa 2 — Catálogo de Produtos (concluída)
 
-Entidade: `Product`.
+Entidade: `Product`. Detalhe completo em `plans/2026-09-12-etapa-2-catalogo-produtos.md`.
 
-- [ ] Migration: tabela `product`
-- [ ] Entidade JPA `Product` + repositório
-- [ ] `GET /api/products` (livre), `POST /api/products` (`EDIT_CATALOG`), `PUT /api/products/{id}` (`EDIT_CATALOG`)
-- [ ] Validação: `min_price_cents` ≤ `max_price_cents` quando ambos presentes
-- [ ] Testes unitários e de integração
+- [x] Migration: tabela `products` (`V5__create_products_table.sql`)
+- [x] Entidade JPA `Product` (`type` como `@Enumerated(EnumType.STRING)`) + repositório
+- [x] `GET /api/products` (livre, só autenticado), `POST /api/products` (`EDIT_CATALOG`), `PUT /api/products/{id}` (`EDIT_CATALOG`)
+- [x] Validação: `min_price_cents` ≤ `max_price_cents` quando ambos presentes (`@AssertTrue`)
+- [x] Testes de integração (MockMvc + Testcontainers): `ProductControllerTest` (401/403/201/400/200/404)
+- [x] Adição fora do roadmap original, motivada pela Etapa 2 do frontend: `GET /api/roles` (`CREATE_USER`) — `RoleController`/`RoleResponse`, reaproveita `RoleRepository` da Etapa 1; `RoleControllerTest` (401/403/200)
 
 ## Etapa 3 — Leads e Origem
 

@@ -37,14 +37,17 @@ public class LeadService {
 
 	private final FunnelStatusHistoryRepository funnelStatusHistoryRepository;
 
+	private final QualificationService qualificationService;
+
 	public LeadService(LeadRepository leadRepository, LeadOriginRepository leadOriginRepository,
 			UserRepository userRepository, ProductRepository productRepository,
-			FunnelStatusHistoryRepository funnelStatusHistoryRepository) {
+			FunnelStatusHistoryRepository funnelStatusHistoryRepository, QualificationService qualificationService) {
 		this.leadRepository = leadRepository;
 		this.leadOriginRepository = leadOriginRepository;
 		this.userRepository = userRepository;
 		this.productRepository = productRepository;
 		this.funnelStatusHistoryRepository = funnelStatusHistoryRepository;
+		this.qualificationService = qualificationService;
 	}
 
 	@Transactional
@@ -55,9 +58,12 @@ public class LeadService {
 		LeadOrigin origin = leadOriginRepository.save(new LeadOrigin(request.leadType(), request.channel(),
 				request.searchSource(), request.region(), request.searchSegment(), CaptureMethod.MANUAL));
 
+		var qualificationScore = qualificationService.calculate(products.size(), request.estimatedBudgetCents(),
+				request.desiredTimeline());
+
 		Lead lead = new Lead(request.name(), request.leadType(), request.phone(), request.email(),
 				request.initialMessage(), request.estimatedBudgetCents(), request.desiredTimeline(),
-				request.qualificationScore(), origin, assignedUser, products);
+				qualificationScore, origin, assignedUser, products);
 		Lead saved = leadRepository.save(lead);
 
 		recordInitialStatus(saved, currentUser);
@@ -113,7 +119,8 @@ public class LeadService {
 		lead.setInitialMessage(request.initialMessage());
 		lead.setEstimatedBudgetCents(request.estimatedBudgetCents());
 		lead.setDesiredTimeline(request.desiredTimeline());
-		lead.setQualificationScore(request.qualificationScore());
+		lead.setQualificationScore(
+				qualificationService.calculate(products.size(), request.estimatedBudgetCents(), request.desiredTimeline()));
 		lead.setAssignedUser(assignedUser);
 		lead.setProductsOfInterest(products);
 

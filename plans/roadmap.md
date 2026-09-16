@@ -125,11 +125,23 @@ Entidade: `Interaction`. Detalhe completo em `plans/2026-09-16-etapa-6-interacoe
 - [x] Testes: `InteractionControllerTest` (401/400/201/403/404 em `POST` e `GET`, ordem cronológica,
   `VIEW_ALL_LEADS` vendo interação de lead de outro vendedor)
 
-## Etapa 7 — Qualificação automática
+## Etapa 7 — Qualificação automática (concluída)
 
-- [ ] Serviço de qualificação: regra de score (produto de interesse, orçamento estimado, prazo desejado) → `HIGH`/`MEDIUM`/`LOW`
-- [ ] Disparo do serviço na criação/atualização do `Lead`
-- [ ] Testes unitários cobrindo as combinações de critério → score
+Detalhe completo em `plans/2026-09-16-etapa-7-qualificacao-automatica.md`.
+
+- [x] `QualificationService`: regra de pontuação configurável (produto de interesse: 0/1;
+  orçamento: 0/1/2 conforme `app.qualification.budget-threshold-cents`; prazo: 0/1/2 conforme
+  palavra-chave de urgência em `app.qualification.urgent-keywords`) — soma `0`–`5` vira
+  `LOW`(`0`-`1`)/`MEDIUM`(`2`-`3`)/`HIGH`(`4`-`5`). Regra inicial simples, sujeita a recalibração
+  com dados reais (ver estudo de caso, seção Riscos)
+- [x] Disparo em `LeadService.create`/`update` e em `PublicLeadService.create` (site sempre
+  resulta em `LOW`, pois esse formulário não coleta produto/orçamento/prazo)
+- [x] `qualificationScore` removido de `CreateLeadRequest`/`UpdateLeadRequest` — deixa de ser
+  aceito do cliente, sempre calculado. **Pendência de frontend** (fora deste plano): o `Select`
+  manual de qualificação em `CreateLeadForm`/`EditLeadForm` (Etapa 4 do frontend) fica sem efeito
+- [x] Testes unitários (`QualificationServiceTest`) cobrindo a matriz de combinações
+  critério→score; casos de integração em `LeadControllerTest`/`PublicLeadControllerTest`
+  verificando o score calculado na criação/atualização
 
 ## Etapa 8 — Central de mensagens (Conversation/Message)
 

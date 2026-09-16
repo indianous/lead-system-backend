@@ -28,15 +28,19 @@ public class PublicLeadService {
 
 	private final FunnelStatusHistoryRepository funnelStatusHistoryRepository;
 
+	private final QualificationService qualificationService;
+
 	private final String defaultAssigneeEmail;
 
 	public PublicLeadService(LeadRepository leadRepository, LeadOriginRepository leadOriginRepository,
 			UserRepository userRepository, FunnelStatusHistoryRepository funnelStatusHistoryRepository,
+			QualificationService qualificationService,
 			@Value("${app.public-api.default-assignee-email}") String defaultAssigneeEmail) {
 		this.leadRepository = leadRepository;
 		this.leadOriginRepository = leadOriginRepository;
 		this.userRepository = userRepository;
 		this.funnelStatusHistoryRepository = funnelStatusHistoryRepository;
+		this.qualificationService = qualificationService;
 		this.defaultAssigneeEmail = defaultAssigneeEmail;
 	}
 
@@ -49,8 +53,12 @@ public class PublicLeadService {
 		LeadOrigin origin = leadOriginRepository
 			.save(new LeadOrigin(LeadType.DIRECT_CONTACT, Channel.WEBSITE, null, null, null, CaptureMethod.API));
 
+		// Formulário do site não coleta produto/orçamento/prazo — resulta sempre em LOW hoje,
+		// correto pela regra (nenhum critério disponível), ver plano da Etapa 7.
+		var qualificationScore = qualificationService.calculate(0, null, null);
+
 		Lead lead = new Lead(request.name(), LeadType.DIRECT_CONTACT, request.phone(), request.email(),
-				request.initialMessage(), null, null, null, origin, defaultAssignee, new HashSet<>());
+				request.initialMessage(), null, null, qualificationScore, origin, defaultAssignee, new HashSet<>());
 
 		Lead saved = leadRepository.save(lead);
 		funnelStatusHistoryRepository

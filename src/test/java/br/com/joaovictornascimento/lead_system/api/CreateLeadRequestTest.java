@@ -12,8 +12,8 @@ class CreateLeadRequestTest {
 
 	private static CreateLeadRequest request(LeadType leadType, Channel channel, SearchSource searchSource,
 			String region, String searchSegment) {
-		return new CreateLeadRequest("Lead teste", leadType, null, null, null, null, null, null,
-				UUID.randomUUID(), null, channel, searchSource, region, searchSegment);
+		return new CreateLeadRequest("Lead teste", leadType, null, null, null, null, null, UUID.randomUUID(), null,
+				channel, searchSource, region, searchSegment);
 	}
 
 	@Test

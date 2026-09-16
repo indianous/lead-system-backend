@@ -199,6 +199,23 @@ class LeadControllerTest {
 	}
 
 	@Test
+	void createLeadWithStrongCriteriaReturnsHighQualification() throws Exception {
+		Role salesperson = roleRepository.findByName("Salesperson").orElseThrow();
+		User ana = createUser("Ana", "ana-leads-qualification1@leadsystem.local", salesperson);
+		Product product = productRepository
+			.save(new Product("Site institucional", ProductType.READY_MADE, "desc", 50000, 100000));
+
+		mockMvc
+			.perform(post("/api/leads").contentType("application/json")
+				.header(HttpHeaders.AUTHORIZATION, tokenFor(ana))
+				.content("""
+						{"name":"Lead Quente","leadType":"DIRECT_CONTACT","assignedUserId":"%s","channel":"TELEGRAM","estimatedBudgetCents":500000,"desiredTimeline":"imediato","productIds":["%s"]}
+						""".formatted(ana.getId(), product.getId())))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.qualificationScore").value("HIGH"));
+	}
+
+	@Test
 	void listLeadsWithoutTokenReturnsUnauthorized() throws Exception {
 		mockMvc.perform(get("/api/leads")).andExpect(status().isUnauthorized());
 	}
@@ -288,6 +305,24 @@ class LeadControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.name").value("Lead Atualizado"))
 			.andExpect(jsonPath("$.assignedUserId").value(bruno.getId().toString()));
+	}
+
+	@Test
+	void updateLeadWithStrongCriteriaRecalculatesQualification() throws Exception {
+		Role salesperson = roleRepository.findByName("Salesperson").orElseThrow();
+		User ana = createUser("Ana", "ana-leads-qualification2@leadsystem.local", salesperson);
+		Lead anaLead = createLead(ana);
+		Product product = productRepository
+			.save(new Product("Sistema sob medida", ProductType.CUSTOM, "desc", null, null));
+
+		mockMvc
+			.perform(put("/api/leads/" + anaLead.getId()).contentType("application/json")
+				.header(HttpHeaders.AUTHORIZATION, tokenFor(ana))
+				.content("""
+						{"name":"Lead Atualizado","assignedUserId":"%s","estimatedBudgetCents":500000,"desiredTimeline":"urgente","productIds":["%s"]}
+						""".formatted(ana.getId(), product.getId())))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.qualificationScore").value("HIGH"));
 	}
 
 	@Test

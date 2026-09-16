@@ -119,6 +119,7 @@ class PublicLeadControllerTest {
 		assertThat(lead.getOrigin().getCaptureMethod()).isEqualTo(CaptureMethod.API);
 		assertThat(lead.getFunnelStatus().name()).isEqualTo("NEW");
 		assertThat(lead.getAssignedUser().getId()).isEqualTo(defaultAssignee.getId());
+		assertThat(lead.getQualificationScore().name()).isEqualTo("LOW");
 
 		List<FunnelStatusHistory> history = funnelStatusHistoryRepository.findByLeadIdOrderByChangedAtAsc(leadId);
 		assertThat(history).hasSize(1);

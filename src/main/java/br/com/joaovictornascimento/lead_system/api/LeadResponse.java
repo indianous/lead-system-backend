@@ -11,5 +11,6 @@ public record LeadResponse(UUID id, String name, LeadType leadType, String phone
 		String initialMessage, Integer estimatedBudgetCents, String desiredTimeline,
 		QualificationScore qualificationScore, FunnelStatus funnelStatus, String lossReason,
 		LeadOriginResponse origin, UUID assignedUserId, String assignedUserName,
-		List<ProductResponse> productsOfInterest, Instant createdAt, Instant updatedAt) {
+		List<ProductResponse> productsOfInterest, List<FunnelStatusHistoryResponse> statusHistory,
+		Instant createdAt, Instant updatedAt) {
 }

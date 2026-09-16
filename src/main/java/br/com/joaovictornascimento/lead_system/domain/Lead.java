@@ -178,8 +178,16 @@ public class Lead {
 		return funnelStatus;
 	}
 
+	public void setFunnelStatus(FunnelStatus funnelStatus) {
+		this.funnelStatus = funnelStatus;
+	}
+
 	public String getLossReason() {
 		return lossReason;
+	}
+
+	public void setLossReason(String lossReason) {
+		this.lossReason = lossReason;
 	}
 
 	public LeadOrigin getOrigin() {

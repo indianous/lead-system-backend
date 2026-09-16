@@ -12,6 +12,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -53,6 +54,12 @@ public class LeadController {
 	public LeadResponse update(@PathVariable UUID id, @Valid @RequestBody UpdateLeadRequest request,
 			@AuthenticationPrincipal User currentUser) {
 		return leadService.update(id, request, currentUser);
+	}
+
+	@PatchMapping("/{id}/status")
+	public LeadResponse updateStatus(@PathVariable UUID id, @Valid @RequestBody UpdateLeadStatusRequest request,
+			@AuthenticationPrincipal User currentUser) {
+		return leadService.updateStatus(id, request, currentUser);
 	}
 
 }

@@ -3,6 +3,8 @@ package br.com.joaovictornascimento.lead_system.api;
 import br.com.joaovictornascimento.lead_system.domain.CaptureMethod;
 import br.com.joaovictornascimento.lead_system.domain.Channel;
 import br.com.joaovictornascimento.lead_system.domain.FunnelStatus;
+import br.com.joaovictornascimento.lead_system.domain.FunnelStatusHistory;
+import br.com.joaovictornascimento.lead_system.domain.FunnelStatusHistoryRepository;
 import br.com.joaovictornascimento.lead_system.domain.Lead;
 import br.com.joaovictornascimento.lead_system.domain.LeadOrigin;
 import br.com.joaovictornascimento.lead_system.domain.LeadOriginRepository;
@@ -33,12 +35,16 @@ public class LeadService {
 
 	private final ProductRepository productRepository;
 
+	private final FunnelStatusHistoryRepository funnelStatusHistoryRepository;
+
 	public LeadService(LeadRepository leadRepository, LeadOriginRepository leadOriginRepository,
-			UserRepository userRepository, ProductRepository productRepository) {
+			UserRepository userRepository, ProductRepository productRepository,
+			FunnelStatusHistoryRepository funnelStatusHistoryRepository) {
 		this.leadRepository = leadRepository;
 		this.leadOriginRepository = leadOriginRepository;
 		this.userRepository = userRepository;
 		this.productRepository = productRepository;
+		this.funnelStatusHistoryRepository = funnelStatusHistoryRepository;
 	}
 
 	@Transactional
@@ -52,8 +58,33 @@ public class LeadService {
 		Lead lead = new Lead(request.name(), request.leadType(), request.phone(), request.email(),
 				request.initialMessage(), request.estimatedBudgetCents(), request.desiredTimeline(),
 				request.qualificationScore(), origin, assignedUser, products);
+		Lead saved = leadRepository.save(lead);
 
-		return toResponse(leadRepository.save(lead));
+		recordInitialStatus(saved, currentUser);
+
+		return toResponse(saved);
+	}
+
+	@Transactional
+	public LeadResponse updateStatus(UUID id, UpdateLeadStatusRequest request, User currentUser) {
+		Lead lead = findLeadOrThrow(id);
+		requireAccess(lead, currentUser);
+
+		FunnelStatus previousStatus = lead.getFunnelStatus();
+		FunnelStatus newStatus = request.newStatus();
+
+		lead.setFunnelStatus(newStatus);
+		lead.setLossReason(newStatus == FunnelStatus.LOST ? request.reason() : null);
+		Lead saved = leadRepository.save(lead);
+
+		funnelStatusHistoryRepository
+			.save(new FunnelStatusHistory(saved, previousStatus, newStatus, currentUser, request.reason()));
+
+		return toResponse(saved);
+	}
+
+	private void recordInitialStatus(Lead lead, User actor) {
+		funnelStatusHistoryRepository.save(new FunnelStatusHistory(lead, null, FunnelStatus.NEW, actor, null));
 	}
 
 	public List<LeadResponse> findAll(User currentUser, LeadType leadType, Channel channel,
@@ -132,11 +163,19 @@ public class LeadService {
 					product.isActive(), product.getCreatedAt()))
 			.toList();
 
+		List<FunnelStatusHistoryResponse> statusHistory = funnelStatusHistoryRepository
+			.findByLeadIdOrderByChangedAtAsc(lead.getId())
+			.stream()
+			.map(history -> new FunnelStatusHistoryResponse(history.getId(), history.getPreviousStatus(),
+					history.getNewStatus(), history.getUser().getId(), history.getUser().getName(),
+					history.getReason(), history.getChangedAt()))
+			.toList();
+
 		return new LeadResponse(lead.getId(), lead.getName(), lead.getLeadType(), lead.getPhone(), lead.getEmail(),
 				lead.getInitialMessage(), lead.getEstimatedBudgetCents(), lead.getDesiredTimeline(),
 				lead.getQualificationScore(), lead.getFunnelStatus(), lead.getLossReason(), originResponse,
-				lead.getAssignedUser().getId(), lead.getAssignedUser().getName(), products, lead.getCreatedAt(),
-				lead.getUpdatedAt());
+				lead.getAssignedUser().getId(), lead.getAssignedUser().getName(), products, statusHistory,
+				lead.getCreatedAt(), lead.getUpdatedAt());
 	}
 
 }

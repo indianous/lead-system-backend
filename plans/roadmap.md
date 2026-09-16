@@ -64,23 +64,51 @@ Entidades: `LeadOrigin`, `Lead`. Detalhe completo em `plans/2026-09-15-etapa-3-l
 - [x] Testes: `CreateLeadRequestTest` (unitário, validação condicional) e `LeadControllerTest` (integração, MockMvc + Testcontainers — CRUD completo, 401/403/404/400)
 - [x] **Bug pré-existente corrigido** (achado ao rodar a app real, não pego pelo MockMvc): `OncePerRequestFilter.shouldNotFilterErrorDispatch()` é `true` por padrão, então `JwtAuthenticationFilter` não roda no forward interno do container para `/error` — qualquer resposta 4xx/5xx (ex.: 400 de Bean Validation) virava 401 vazio nesse forward, mascarando o status original. Corrigido adicionando `/error` ao `permitAll()` em `SecurityConfig`. Afetava também `/api/auth/login`, `/api/users` e `/api/products` (Etapas 1 e 2), não só `/api/leads`.
 
-## Etapa 4 — Endpoint público de recepção de leads do site
+## Etapa 4 — Endpoint público de recepção de leads do site (concluída)
 
-- [ ] Mecanismo de autenticação por API key/token de integração (implementação própria sobre Spring Security, fora do fluxo de login de usuário)
-- [ ] Bucket4j: rate limiting no endpoint público
-- [ ] `POST /api/public/leads` — cria `Lead` com `LeadOrigin.channel = WEBSITE`, `capture_method = API`
-- [ ] Documentação OpenAPI (springdoc) explícita desse contrato, para o time do site institucional (fora do escopo deste projeto) consumir
-- [ ] Testes: token ausente/inválido → 401, payload inválido → 400 (Spring Validation), acima do limite → 429
+Detalhe completo em `plans/2026-09-15-etapa-4-endpoint-publico-leads-site.md`.
 
-## Etapa 5 — Funil e Histórico de Status
+- [x] Mecanismo de autenticação por API key (`PublicApiKeyFilter`, restrito a `/api/public/**`,
+  comparação em tempo constante via `MessageDigest.isEqual`, chave única via
+  `app.public-api.key`/`PUBLIC_LEADS_API_KEY`) — fora do fluxo de login de usuário
+- [x] Bucket4j: rate limiting por IP (`RateLimitFilter`, `Bucket` em memória por
+  `request.getRemoteAddr()`, default 20 req/min, configurável)
+- [x] `POST /api/public/leads` — cria `Lead` com `leadType=DIRECT_CONTACT`,
+  `origin.channel=WEBSITE`, `origin.captureMethod=API`, sempre fixos (não vêm do request);
+  atribuído a um usuário padrão configurável (`app.public-api.default-assignee-email`, default o
+  admin inicial) para triagem manual — reatribuído depois via `PUT /api/leads/{id}` (Etapa 3)
+- [x] Resposta mínima (`PublicLeadResponse`: `id`, `createdAt`) — não expõe dados internos
+  (responsável, papel) a um chamador externo
+- [x] Documentação OpenAPI explícita (`@Operation`/`@ApiResponses`/`@Schema` no
+  `PublicLeadController`, `@SecurityScheme` em `config/OpenApiConfig`) — visível em
+  `/v3/api-docs`/Swagger UI para o time do site institucional consumir
+- [x] Testes: `PublicApiKeyFilterTest` (unitário), `PublicLeadControllerTest` (401/400/201 +
+  verifica origem/atribuição no banco), `PublicLeadRateLimitTest` (429 acima do limite, classe
+  isolada com `@TestPropertySource` para não compartilhar o balde com o resto da suíte)
 
-Entidade: `FunnelStatusHistory`.
+## Etapa 5 — Funil e Histórico de Status (concluída)
 
-- [ ] Migration: tabela `funnel_status_history`
-- [ ] Entidade JPA + repositório
-- [ ] Regra de transição de status: `reason`/`loss_reason` obrigatório ao mover para `LOST`
-- [ ] `PATCH /api/leads/{id}/status` — registra a transição e atualiza `Lead.funnel_status`
-- [ ] Testes: transição válida, transição para `LOST` sem motivo → 400
+Entidade: `FunnelStatusHistory`. Detalhe completo em
+`plans/2026-09-16-etapa-5-funil-historico-status.md`.
+
+- [x] Migration: tabela `funnel_status_histories` (`V7__create_funnel_status_history_table.sql`)
+- [x] Entidade JPA `FunnelStatusHistory` (imutável, sem `@PreUpdate`) + `FunnelStatusHistoryRepository`
+- [x] Regra de transição de status: `reason` obrigatório ao mover para `LOST` (`@AssertTrue` em
+  `UpdateLeadStatusRequest`); `Lead.lossReason` é limpo automaticamente ao sair de `LOST`; sem
+  máquina de estados (qualquer `FunnelStatus` → qualquer outro é aceito — não documentado como
+  restrito)
+- [x] `PATCH /api/leads/{id}/status` — registra a transição e atualiza `Lead.funnel_status`,
+  reaproveitando a checagem de posse já existente (`VIEW_OWN_LEADS`/`VIEW_ALL_LEADS`)
+- [x] **Retroalimentação nas Etapas 3/4**: `LeadService.create` e `PublicLeadService.create`
+  passaram a gravar a `FunnelStatusHistory` inicial (`previousStatus=null`, `newStatus=NEW`) —
+  conforme `03-entidades.md`, o histórico começa já na criação do lead, não só na primeira
+  mudança manual. Para o lead criado via API pública (sem usuário autenticado), o autor da
+  transição inicial é o mesmo usuário padrão de atribuição.
+- [x] Histórico embutido em `LeadResponse.statusHistory` (sem rota `GET` própria — reaproveita
+  `GET /api/leads/{id}` já existente)
+- [x] Testes: `UpdateLeadStatusRequestTest` (unitário), `LeadControllerTest` (novos casos de
+  `PATCH .../status`: 401/400/200/403/404, mais a verificação do histórico inicial na criação),
+  `PublicLeadControllerTest` (verifica o histórico inicial do lead criado via API pública)
 
 ## Etapa 6 — Interações
 

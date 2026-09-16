@@ -41,6 +41,7 @@ public class SecurityConfig {
 
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter,
+			PublicApiKeyFilter publicApiKeyFilter, RateLimitFilter rateLimitFilter,
 			CorsConfigurationSource corsConfigurationSource) throws Exception {
 		http.csrf(csrf -> csrf.disable())
 			.cors(cors -> cors.configurationSource(corsConfigurationSource))
@@ -54,6 +55,10 @@ public class SecurityConfig {
 				// MockMvc, que não reproduz o forward de erro do container real).
 				.requestMatchers("/api/auth/login", "/error", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
 				.permitAll()
+				// Endpoint público (site institucional) — autenticado por API key, não por JWT
+				// de usuário; a authority é concedida pelo PublicApiKeyFilter.
+				.requestMatchers("/api/public/leads")
+				.hasAuthority(PublicApiKeyFilter.PUBLIC_API_ACCESS_AUTHORITY)
 				.anyRequest()
 				.authenticated())
 			// Sem isso, o Spring Security responde 403 (não 401) tanto para request sem
@@ -62,7 +67,16 @@ public class SecurityConfig {
 			.exceptionHandling(exceptions -> exceptions
 				.authenticationEntryPoint((request, response, authException) -> response
 					.sendError(HttpServletResponse.SC_UNAUTHORIZED)))
-			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+			// Rate limit roda primeiro (mais barato, limita até tentativas de força bruta da
+			// API key); os dois mecanismos de autenticação (JWT de usuário / API key pública)
+			// não interferem entre si — cada um só atua no seu próprio conjunto de rotas.
+			// Ordem das chamadas importa: um filtro custom só pode ser usado como âncora
+			// (segundo argumento) depois de ele mesmo já ter sido registrado relativo a um
+			// filtro padrão do Spring Security — por isso jwtAuthenticationFilter entra antes
+			// de ser usado como âncora do rateLimitFilter.
+			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+			.addFilterBefore(rateLimitFilter, JwtAuthenticationFilter.class)
+			.addFilterBefore(publicApiKeyFilter, UsernamePasswordAuthenticationFilter.class);
 		return http.build();
 	}
 

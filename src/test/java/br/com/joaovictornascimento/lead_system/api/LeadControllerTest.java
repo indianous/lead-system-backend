@@ -1,6 +1,7 @@
 package br.com.joaovictornascimento.lead_system.api;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -119,7 +120,10 @@ class LeadControllerTest {
 			.andExpect(jsonPath("$.name").value("Novo Lead"))
 			.andExpect(jsonPath("$.funnelStatus").value("NEW"))
 			.andExpect(jsonPath("$.origin.captureMethod").value("MANUAL"))
-			.andExpect(jsonPath("$.origin.channel").value("META_WHATSAPP"));
+			.andExpect(jsonPath("$.origin.channel").value("META_WHATSAPP"))
+			.andExpect(jsonPath("$.statusHistory.length()").value(1))
+			.andExpect(jsonPath("$.statusHistory[0].previousStatus").doesNotExist())
+			.andExpect(jsonPath("$.statusHistory[0].newStatus").value("NEW"));
 	}
 
 	@Test
@@ -309,6 +313,102 @@ class LeadControllerTest {
 			.perform(put("/api/leads/" + UUID.randomUUID()).contentType("application/json")
 				.header(HttpHeaders.AUTHORIZATION, tokenFor(admin))
 				.content(updateLeadJson("Lead Atualizado", admin.getId())))
+			.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void updateStatusWithoutTokenReturnsUnauthorized() throws Exception {
+		Role salesperson = roleRepository.findByName("Salesperson").orElseThrow();
+		User ana = createUser("Ana", "ana-leads7@leadsystem.local", salesperson);
+		Lead anaLead = createLead(ana);
+
+		mockMvc
+			.perform(patch("/api/leads/" + anaLead.getId() + "/status").contentType("application/json")
+				.content("""
+						{"newStatus":"CONTACTED"}
+						"""))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void updateStatusToLostWithoutReasonReturnsBadRequest() throws Exception {
+		Role salesperson = roleRepository.findByName("Salesperson").orElseThrow();
+		User ana = createUser("Ana", "ana-leads8@leadsystem.local", salesperson);
+		Lead anaLead = createLead(ana);
+
+		mockMvc
+			.perform(patch("/api/leads/" + anaLead.getId() + "/status").contentType("application/json")
+				.header(HttpHeaders.AUTHORIZATION, tokenFor(ana))
+				.content("""
+						{"newStatus":"LOST"}
+						"""))
+			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void updateStatusToLostWithReasonUpdatesFunnelStatusAndLossReason() throws Exception {
+		Role salesperson = roleRepository.findByName("Salesperson").orElseThrow();
+		User ana = createUser("Ana", "ana-leads9@leadsystem.local", salesperson);
+		Lead anaLead = createLead(ana);
+
+		mockMvc
+			.perform(patch("/api/leads/" + anaLead.getId() + "/status").contentType("application/json")
+				.header(HttpHeaders.AUTHORIZATION, tokenFor(ana))
+				.content("""
+						{"newStatus":"LOST","reason":"Cliente não respondeu"}
+						"""))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.funnelStatus").value("LOST"))
+			.andExpect(jsonPath("$.lossReason").value("Cliente não respondeu"))
+			.andExpect(jsonPath("$.statusHistory[0].previousStatus").value("NEW"))
+			.andExpect(jsonPath("$.statusHistory[0].newStatus").value("LOST"))
+			.andExpect(jsonPath("$.statusHistory[0].reason").value("Cliente não respondeu"));
+	}
+
+	@Test
+	void updateStatusToCommonTransitionDoesNotRequireReason() throws Exception {
+		Role salesperson = roleRepository.findByName("Salesperson").orElseThrow();
+		User ana = createUser("Ana", "ana-leads10@leadsystem.local", salesperson);
+		Lead anaLead = createLead(ana);
+
+		mockMvc
+			.perform(patch("/api/leads/" + anaLead.getId() + "/status").contentType("application/json")
+				.header(HttpHeaders.AUTHORIZATION, tokenFor(ana))
+				.content("""
+						{"newStatus":"CONTACTED"}
+						"""))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.funnelStatus").value("CONTACTED"))
+			.andExpect(jsonPath("$.lossReason").doesNotExist());
+	}
+
+	@Test
+	void updateStatusWithViewOwnLeadsOnlyOnAnotherUsersLeadReturnsForbidden() throws Exception {
+		Role salesperson = roleRepository.findByName("Salesperson").orElseThrow();
+		User ana = createUser("Ana", "ana-leads11@leadsystem.local", salesperson);
+		User bruno = createUser("Bruno", "bruno-leads7@leadsystem.local", salesperson);
+		Lead brunoLead = createLead(bruno);
+
+		mockMvc
+			.perform(patch("/api/leads/" + brunoLead.getId() + "/status").contentType("application/json")
+				.header(HttpHeaders.AUTHORIZATION, tokenFor(ana))
+				.content("""
+						{"newStatus":"CONTACTED"}
+						"""))
+			.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void updateStatusOfUnknownLeadReturnsNotFound() throws Exception {
+		Role manager = roleRepository.findByName("Manager/Administrator").orElseThrow();
+		User admin = createUser("Gestor", "gestor-leads6@leadsystem.local", manager);
+
+		mockMvc
+			.perform(patch("/api/leads/" + UUID.randomUUID() + "/status").contentType("application/json")
+				.header(HttpHeaders.AUTHORIZATION, tokenFor(admin))
+				.content("""
+						{"newStatus":"CONTACTED"}
+						"""))
 			.andExpect(status().isNotFound());
 	}
 

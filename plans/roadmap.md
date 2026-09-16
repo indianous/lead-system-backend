@@ -110,15 +110,20 @@ Entidade: `FunnelStatusHistory`. Detalhe completo em
   `PATCH .../status`: 401/400/200/403/404, mais a verificação do histórico inicial na criação),
   `PublicLeadControllerTest` (verifica o histórico inicial do lead criado via API pública)
 
-## Etapa 6 — Interações
+## Etapa 6 — Interações (concluída)
 
-Entidade: `Interaction`.
+Entidade: `Interaction`. Detalhe completo em `plans/2026-09-16-etapa-6-interacoes.md`.
 
-- [ ] Migration: tabela `interaction`
-- [ ] Entidade JPA + repositório
-- [ ] `POST /api/leads/{id}/interactions` (`CALL` ou `NOTE`)
-- [ ] `GET /api/leads/{id}/interactions`
-- [ ] Testes
+- [x] Migration: tabela `interactions` (`V8__create_interactions_table.sql`)
+- [x] Entidade JPA `Interaction` (imutável, mesmo padrão de `FunnelStatusHistory`) + `InteractionRepository`
+- [x] `POST /api/leads/{id}/interactions` (`CALL` ou `NOTE`)
+- [x] `GET /api/leads/{id}/interactions` (ordem cronológica)
+- [x] **Refatoração**: extraído `LeadService.findAccessibleLeadOrThrow(id, currentUser)` público
+  (reúne a busca do lead + checagem de posse, antes duplicada em `updateStatus`/`findById`/`update`)
+  — reaproveitado pelo novo `InteractionService` para não duplicar essa checagem de segurança
+  uma quarta vez
+- [x] Testes: `InteractionControllerTest` (401/400/201/403/404 em `POST` e `GET`, ordem cronológica,
+  `VIEW_ALL_LEADS` vendo interação de lead de outro vendedor)
 
 ## Etapa 7 — Qualificação automática
 

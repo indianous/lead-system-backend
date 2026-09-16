@@ -67,8 +67,7 @@ public class LeadService {
 
 	@Transactional
 	public LeadResponse updateStatus(UUID id, UpdateLeadStatusRequest request, User currentUser) {
-		Lead lead = findLeadOrThrow(id);
-		requireAccess(lead, currentUser);
+		Lead lead = findAccessibleLeadOrThrow(id, currentUser);
 
 		FunnelStatus previousStatus = lead.getFunnelStatus();
 		FunnelStatus newStatus = request.newStatus();
@@ -97,15 +96,13 @@ public class LeadService {
 	}
 
 	public LeadResponse findById(UUID id, User currentUser) {
-		Lead lead = findLeadOrThrow(id);
-		requireAccess(lead, currentUser);
+		Lead lead = findAccessibleLeadOrThrow(id, currentUser);
 		return toResponse(lead);
 	}
 
 	@Transactional
 	public LeadResponse update(UUID id, UpdateLeadRequest request, User currentUser) {
-		Lead lead = findLeadOrThrow(id);
-		requireAccess(lead, currentUser);
+		Lead lead = findAccessibleLeadOrThrow(id, currentUser);
 
 		User assignedUser = findUserOrThrow(request.assignedUserId());
 		Set<Product> products = findProductsOrThrow(request.productIds());
@@ -123,10 +120,17 @@ public class LeadService {
 		return toResponse(leadRepository.save(lead));
 	}
 
-	private void requireAccess(Lead lead, User currentUser) {
+	/**
+	 * Busca o lead e valida a posse (VIEW_OWN_LEADS só acessa o próprio; VIEW_ALL_LEADS acessa
+	 * qualquer um) — reaproveitado também pelo InteractionService, para as duas checagens não
+	 * divergirem com o tempo (ver plano da Etapa 6).
+	 */
+	public Lead findAccessibleLeadOrThrow(UUID id, User currentUser) {
+		Lead lead = findLeadOrThrow(id);
 		if (!hasViewAllLeads(currentUser) && !lead.getAssignedUser().getId().equals(currentUser.getId())) {
 			throw new LeadAccessDeniedException(lead.getId());
 		}
+		return lead;
 	}
 
 	private boolean hasViewAllLeads(User user) {

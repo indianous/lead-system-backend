@@ -55,6 +55,17 @@ public class SecurityConfig {
 				// MockMvc, que não reproduz o forward de erro do container real).
 				.requestMatchers("/api/auth/login", "/error", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
 				.permitAll()
+				// Webhooks da Meta/Telegram — chamados pelo provedor, não por um usuário nem
+				// pela API key pública; a segurança real é a verificação de assinatura/secret
+				// token feita dentro dos próprios controllers (ver plano da Etapa 8).
+				.requestMatchers("/api/webhooks/whatsapp", "/api/webhooks/telegram")
+				.permitAll()
+				// Endpoint STOMP do chat em tempo real — o handshake HTTP não carrega o JWT (a API
+				// WebSocket nativa do navegador não permite headers customizados no upgrade); a
+				// autenticação de verdade acontece dentro do frame STOMP CONNECT, num
+				// ChannelInterceptor (ver plano da Etapa 9).
+				.requestMatchers("/ws/**")
+				.permitAll()
 				// Endpoint público (site institucional) — autenticado por API key, não por JWT
 				// de usuário; a authority é concedida pelo PublicApiKeyFilter.
 				.requestMatchers("/api/public/leads")

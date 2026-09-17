@@ -29,4 +29,9 @@ public class ApiExceptionHandler {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", ex.getMessage()));
 	}
 
+	@ExceptionHandler(LeadMissingPhoneException.class)
+	public ResponseEntity<Map<String, String>> handleLeadMissingPhone(LeadMissingPhoneException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
+	}
+
 }

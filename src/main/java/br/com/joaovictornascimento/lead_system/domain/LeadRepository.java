@@ -1,12 +1,17 @@
 package br.com.joaovictornascimento.lead_system.domain;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface LeadRepository extends JpaRepository<Lead, UUID> {
+
+	// Usado pelo webhook do WhatsApp para descobrir a qual lead uma mensagem recebida pertence
+	// (casa pelo número de telefone) — ver plano da Etapa 8.
+	Optional<Lead> findFirstByPhone(String phone);
 
 	@Query("""
 			SELECT l FROM Lead l

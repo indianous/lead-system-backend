@@ -143,28 +143,85 @@ Detalhe completo em `plans/2026-09-16-etapa-7-qualificacao-automatica.md`.
   critério→score; casos de integração em `LeadControllerTest`/`PublicLeadControllerTest`
   verificando o score calculado na criação/atualização
 
-## Etapa 8 — Central de mensagens (Conversation/Message)
+## Etapa 8 — Central de mensagens (Conversation/Message) (concluída)
 
-Entidades: `Conversation`, `Message`.
+Detalhe completo em `plans/2026-09-16-etapa-8-central-de-mensagens.md`.
 
-- [ ] Migration: tabelas `conversation`, `message`
-- [ ] Entidades JPA + repositórios
-- [ ] Abstração de canal de mensageria (`MessageChannelClient` — interface com implementações WhatsApp/Telegram)
-- [ ] Integração WhatsApp Business Platform (Cloud API) — envio (`sendMessage`)
-- [ ] Integração Telegram Bot API — envio (`sendMessage`)
-- [ ] Utilitário de verificação de assinatura de webhook (HMAC-SHA256)
-- [ ] `GET/POST /api/webhooks/whatsapp` (verificação + recebimento de eventos)
-- [ ] `POST /api/webhooks/telegram` (recebimento de atualizações)
-- [ ] `GET /api/leads/{id}/conversations`, `GET /api/conversations/{id}/messages`, `POST /api/conversations/{id}/messages` (envio pelo vendedor)
-- [ ] Atualização de `Message.status` (`SENT`/`DELIVERED`/`READ`/`FAILED`) a partir de callbacks dos provedores
-- [ ] Testes: mocks das APIs externas (Mockito/WireMock), verificação de assinatura válida/inválida, idempotência de webhook
+- [x] Migration: tabelas `conversations`, `messages` (`V9__create_conversations_and_messages_tables.sql`,
+  `UNIQUE(channel, external_thread_id)` em `conversations`)
+- [x] Entidades JPA `Conversation`/`Message` + repositórios; `Conversation.touch()` explícito
+  (salvar uma `Message` não dispara o `@PreUpdate` da `Conversation` pai)
+- [x] Abstração de canal (`MessageChannelClient`) com `WhatsAppMessageChannelClient`/`TelegramMessageChannelClient`
+  (`RestClient`, `SimpleClientHttpRequestFactory` forçando HTTP/1.1 — evita negociação HTTP/2 com
+  `RST_STREAM` observada em teste contra o WireMock local; sem impacto real, Graph API e Bot API
+  servem HTTP/1.1 normalmente)
+- [x] `WhatsAppSignatureVerifier` (HMAC-SHA256 sobre `X-Hub-Signature-256`) e
+  `TelegramSecretTokenVerifier` (comparação constante contra `X-Telegram-Bot-Api-Secret-Token`) —
+  mecanismos de verificação diferentes por provedor (Meta assina o corpo; Telegram ecoa um segredo
+  fixo cadastrado no `setWebhook`)
+- [x] `GET/POST /api/webhooks/whatsapp` (challenge de verificação + eventos `messages`/`statuses`),
+  `POST /api/webhooks/telegram` (updates) — `permitAll` no `SecurityConfig`, autenticação é a
+  assinatura/secret-token verificada dentro do controller, fora do modelo de permissões de usuário
+- [x] `POST /api/leads/{id}/conversations`: WhatsApp cria a `Conversation` (thread = telefone do
+  lead, 400 se o lead não tiver telefone); Telegram **não cria** `Conversation` — devolve um deep
+  link `https://t.me/<bot-username>?start=<leadId>`, decisão de design para resolver uma lacuna
+  real da Bot API (o `chat_id` só existe depois que o lead manda a primeira mensagem ao bot; não
+  documentado no estudo de caso)
+- [x] `GET /api/leads/{id}/conversations`, `GET /api/conversations/{id}/messages`,
+  `POST /api/conversations/{id}/messages` (envio pelo vendedor) — reusa
+  `LeadService.findAccessibleLeadOrThrow` (mesmo ACL de Interactions/FunnelStatusHistory)
+- [x] Matching de lead em mensagem inbound: WhatsApp por telefone (`LeadRepository.findFirstByPhone`);
+  Telegram só por `chat_id` já vinculado via `/start` prévio (mensagem sem `Conversation` existente
+  é ignorada — não há como atribuí-la a um lead)
+- [x] Idempotência de webhook por `external_message_id` (WhatsApp: `wamid` real; Telegram: composto
+  sintético `"<chatId>:<messageId>"`, já que a Bot API não expõe um id global de update)
+- [x] Atualização de `Message.status` a partir de callbacks do WhatsApp (`sent`/`delivered`/`read`/`failed`)
+  — Telegram não expõe confirmação de entrega/leitura, mensagens enviadas ficam em `SENT`/`FAILED`
+- [x] Fora do escopo (ver plano): Instagram/Messenger (`Channel` já modela, sem cliente de envio),
+  template message do WhatsApp fora da janela de 24h (fica `FAILED`, sem fallback)
+- [x] Testes: `WhatsAppSignatureVerifierTest`/`TelegramSecretTokenVerifierTest` (unitários),
+  `WhatsAppMessageChannelClientTest`/`TelegramMessageChannelClientTest` (WireMock —
+  `org.wiremock:wiremock-standalone`, não `wiremock`: o artefato não-standalone conflita com as
+  versões de Jetty gerenciadas pelo `spring-boot-starter-parent`, quebrando o `HttpServerFactory`),
+  `ConversationControllerTest`, `WhatsAppWebhookControllerTest`, `TelegramWebhookControllerTest`
+  (MockMvc + Testcontainers, `@MockitoBean` nos dois `MessageChannelClient`)
+- [x] Credenciais reais do WhatsApp/Telegram ainda pendentes (usuário vai fornecer depois) —
+  properties com defaults só-dev (`app.messaging.*`), sem token real configurado; verificação
+  end-to-end feita só até onde dá sem credenciais reais (persistência, endpoints, assinatura de
+  webhook, geração de deep link, envio falhando com `FAILED` por falta de token)
 
-## Etapa 9 — Tempo real (WebSocket/STOMP)
+## Etapa 9 — Tempo real (WebSocket/STOMP) (concluída)
 
-- [ ] Configuração `spring-boot-starter-websocket` (STOMP endpoint, ex. `/ws`)
-- [ ] Broadcast de mensagem nova (recebida via webhook) para o tópico da conversa (`/topic/conversations/{id}`)
-- [ ] Autenticação do handshake STOMP via JWT já emitido
-- [ ] Testes de integração do fluxo webhook → broadcast
+Detalhe completo em `plans/2026-09-17-etapa-9-tempo-real-websocket.md`.
+
+- [x] `config/WebSocketConfig.java` (`@EnableWebSocketMessageBroker`): endpoint STOMP `/ws` sem
+  SockJS (frontend usa `@stomp/stompjs` puro — WebSocket nativo), `setAllowedOriginPatterns`
+  reusando `app.cors.allowed-origins`, broker simples em `/topic`, conversor
+  `JacksonJsonMessageConverter` registrado explicitamente (evita repetir a ambiguidade Jackson 2/3
+  da Etapa 8 — `tools.jackson` é o que o Spring Boot 4.1 autoconfigura)
+- [x] Autenticação "in-band": JWT no header nativo `Authorization` do frame STOMP `CONNECT` (não no
+  handshake HTTP — WebSocket nativo do navegador não permite headers customizados no upgrade);
+  `/ws/**` liberado no `SecurityConfig` (mesmo padrão dos webhooks)
+- [x] `realtime/StompAuthChannelInterceptor`: autentica o `CONNECT` (mesma regra do
+  `JwtAuthenticationFilter` — usuário inativo não autentica) e autoriza o `SUBSCRIBE` em
+  `/topic/conversations/{id}` reusando `LeadService.findAccessibleLeadOrThrow`. Pegadinha real
+  encontrada: `StompHeaderAccessor.wrap(message)` cria um accessor solto — `setUser(...)` nele não
+  se refletia na `Message` de verdade; precisa de `MessageHeaderAccessor.getAccessor(message,
+  StompHeaderAccessor.class)`, que devolve o accessor mutável já anexado à sessão
+- [x] `realtime/ConversationBroadcaster`: publica no tópico da conversa logo após persistir a
+  `Message`; injetado em `ConversationService.sendMessage`, `WhatsAppWebhookService.handleInboundMessage`
+  e `TelegramWebhookService.process` (branch de mensagem regular) — os três pontos que hoje
+  persistem `Message`
+- [x] `MessageResponse.from(Message)`: factory estático extraído para eliminar a duplicação do
+  mapeamento entre `ConversationService` e `ConversationBroadcaster`
+- [x] Fora do escopo (decisão do plano): broadcast de atualização de `Message.status`
+  (`SENT`→`DELIVERED`→`READ`, callback do WhatsApp) — `04-rotas-e-telas.md` só promete tempo real
+  para mensagem nova, não para tique de status
+- [x] Testes: `ConversationBroadcasterTest` (unitário, `SimpMessagingTemplate` mockado),
+  `MessageResponseTest` (mapeamento), `ChatWebSocketIntegrationTest` (`@SpringBootTest`
+  `RANDOM_PORT` + `WebSocketStompClient`/`StandardWebSocketClient` reais — conexão com/sem JWT,
+  broadcast via envio do vendedor e via webhook WhatsApp/Telegram, subscrição negada para
+  `VIEW_OWN_LEADS` em lead de outro vendedor, permitida para `VIEW_ALL_LEADS`)
 
 ## Etapa 10 — Prospecção (busca local)
 
